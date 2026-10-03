@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>On-Call Compensation Calculator</title>
+<style>
+:root{
+  --ink:#171817; --bg:#F6F7F6; --card:#fff; --line:#E6E6E6; --muted:#5F655F;
+  --green:#06AC38; --green-d:#048A24; --green-dd:#005A2F; --lime:#ADF07E;
+  --teal:#117170; --navy:#082B56; --red:#F82431; --amber:#E8A317;
+  --focus:#117170;
+}
+@media (prefers-color-scheme:dark){
+  :root{--ink:#F2F4F2; --bg:#111311; --card:#1A1D1A; --line:#2F342F; --muted:#A5ABA5; --green-d:#3CCB63;}
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+h1,h2{font-weight:300;margin:0}
+h1{font-size:28px} h2{font-size:22px;margin-bottom:4px}
+h3{font-size:14px;margin:0 0 8px;font-weight:600}
+header.app{background:var(--green-dd);color:#fff;padding:12px 24px;display:flex;align-items:center;gap:16px}
+header.app .logo{width:28px;height:28px;border-radius:6px;background:var(--green);display:grid;place-items:center;font-weight:700}
+header.app .spacer{flex:1}
+header.app .conn{font-size:12px;background:rgba(255,255,255,.12);padding:4px 10px;border-radius:99px}
+.note{background:#FFF8E1;color:#5a4500;padding:6px 24px;font-size:12px;border-bottom:1px solid #f0e2ad}
+@media (prefers-color-scheme:dark){.note{background:#2b2410;color:#e8d38a;border-color:#4a3d14}}
+nav.steps{display:flex;gap:4px;padding:16px 24px 0;overflow-x:auto}
+nav.steps button{flex:1;min-width:130px;text-align:left;border:0;border-bottom:3px solid var(--line);background:transparent;color:var(--muted);padding:8px 4px;cursor:pointer;font:inherit}
+nav.steps button b{display:block;color:inherit;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+nav.steps button.on{border-color:var(--green);color:var(--ink)}
+nav.steps button.done{border-color:var(--green-d)}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 80px}
+.screen{display:none}.screen.on{display:block}
+.sub{color:var(--muted);margin:0 0 16px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font:inherit}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1;min-width:90px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.btn{display:inline-block;border:1px solid var(--green-d);background:var(--green);color:#fff;padding:9px 16px;border-radius:6px;font:inherit;font-weight:600;cursor:pointer;width:auto}
+.btn.sec{background:transparent;color:var(--green-d)}
+.btn.ghost{border-color:var(--line);color:var(--ink);background:transparent}
+.actions{display:flex;gap:8px;justify-content:space-between;margin-top:20px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:12px;margin:2px}
+.chip.on{background:var(--lime);border-color:var(--green-d);color:#0b2a12}
+.seg{display:inline-flex;border:1px solid var(--green-d);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);padding:8px 14px;cursor:pointer;font:inherit}
+.seg button.on{background:var(--green);color:#fff}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tbody tr:hover{background:rgba(6,172,56,.07);cursor:pointer}
+tfoot td{font-weight:700}
+.scroll{overflow-x:auto}
+.disclaimer{color:var(--red);font-size:11px;margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+.tl{display:grid;grid-template-columns:44px repeat(24,1fr);gap:1px;font-size:10px;margin-top:8px}
+.tl div{height:18px}
+.tl .h{height:auto;color:var(--muted);text-align:center}
+.tl .d{display:flex;align-items:center;color:var(--muted)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:10px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green)}
+.kpi{font-size:26px;font-weight:300}
+.kpi small{display:block;font-size:11px;color:var(--muted);font-weight:400;text-transform:uppercase;letter-spacing:.05em}
+.warn{border-left:4px solid var(--amber);padding:8px 12px;background:rgba(232,163,23,.1);border-radius:4px;font-size:13px}
+.ok{color:var(--green-d)}
+details{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-top:12px}
+summary{cursor:pointer;font-weight:600}
+.pricing-only{}
+body.hours-only .pricing-only{display:none}
+.hide{display:none}
+.fmt{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.fmt label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:12px;margin:0;font-weight:400;cursor:pointer}
+.fmt label b{display:block}
+.fmt input{width:auto;margin-top:3px}
+
+.seg{flex:0 0 auto!important;min-width:0!important}
+.seg button{padding:6px 14px;font-size:13px;white-space:nowrap;flex:0 0 auto;min-width:0}
+.hide{display:none!important}
+select[multiple]{height:96px}
+.err{border-left:4px solid var(--red);padding:8px 12px;background:rgba(248,36,49,.08);border-radius:4px;font-size:13px;margin:10px 0}
+.empty{color:var(--muted);padding:16px;text-align:center}
+.mini{width:70px;text-align:right}
+.reorder button{padding:2px 8px;margin-left:4px}
+.logbox{font-family:ui-monospace,Menlo,monospace;font-size:11px;max-height:120px;overflow:auto;background:var(--bg);padding:8px;border-radius:6px;margin-top:8px;white-space:pre-wrap}
+td.l{text-align:left}
+tr.clickable{cursor:pointer}
+</style></head>
+<body>
+<header class="app">
+  <div class="logo">PD</div>
+  <strong>On-Call Compensation Calculator</strong>
+  <span class="spacer"></span>
+  <span class="conn" id="connBadge">Not connected</span>
+</header>
+<nav class="steps" id="steps">
+  <button data-s="H" class="on"><b>Home</b>Saved reports</button>
+  <button data-s="0"><b>Step 1</b>Connect</button>
+  <button data-s="1"><b>Step 2</b>Who &amp; when</button>
+  <button data-s="2"><b>Step 3</b>Rules</button>
+  <button data-s="3"><b>Step 4</b>Review</button>
+  <button data-s="4"><b>Step 5</b>Export</button>
+</nav>
+<main>
+<div id="globalErr" class="err hide"></div>
+
+<!-- HOME -->
+<section class="screen on" id="sH">
+  <h2>Welcome</h2>
+  <p class="sub">Your connection is saved, so you don't enter the API key again. A saved report keeps its people filters, rules and pricing. Just change the dates and run.</p>
+  <div class="grid g2">
+    <div class="card"><h3>Saved reports</h3><div id="reportList"></div></div>
+    <div class="card">
+      <h3>Start something new</h3>
+      <div class="row"><button class="btn" id="newReport">New report</button></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+      <h3>Connection</h3><div id="homeConn"></div>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 1 -->
+<section class="screen" id="s0">
+  <h2>Connect to PagerDuty</h2>
+  <p class="sub">Use a read-only REST API key. It is stored encrypted in your computer's credential store and only sent to PagerDuty.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Saved connections</h3><div id="connList"></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <h3>Add a connection</h3>
+      <label for="cName">Name</label><input id="cName" placeholder="e.g. Production account">
+      <label for="cKey">API key</label><input id="cKey" type="password" autocomplete="off" placeholder="Paste read-only REST API key">
+      <label for="cRegion">Region</label>
+      <select id="cRegion"><option value="us">US (api.pagerduty.com)</option><option value="eu">EU (api.eu.pagerduty.com)</option></select>
+      <div style="margin-top:12px"><button class="btn" id="cSave">Validate &amp; save</button> <span class="hint" id="cMsg"></span></div>
+    </div>
+    <div class="card">
+      <h3>How do I get a key?</h3>
+      <ol style="padding-left:18px;margin:0"><li>In PagerDuty, open <b>Integrations → API Access Keys</b>.</li><li>Create a new key and tick <b>Read-only</b>.</li><li>Paste it here.</li></ol>
+      <div class="warn" style="margin-top:14px">The key needs access to users, teams, schedules, on-calls and (for engaged time) Analytics. If your plan does not include Analytics, you'll be told before running.</div>
+      <details open><summary>Advanced: API pacing &amp; retries</summary>
+        <div class="row"><div><label>Delay between calls (ms)</label><input id="aDelay" type="number" min="0"></div><div><label>Max retries</label><input id="aRetries" type="number" min="0"></div><div><label>Timeout (s)</label><input id="aTimeout" type="number" min="5"></div></div>
+        <div class="hint">Safe defaults. Calls are spaced out and retried with increasing waits; the tool also honors PagerDuty's own wait time.</div>
+      </details>
+    </div>
+  </div>
+  <div class="actions"><span></span><button class="btn" data-go="1">Continue →</button></div>
+</section>
+
+<!-- STEP 2 -->
+<section class="screen" id="s1">
+  <h2>Who &amp; when</h2>
+  <p class="sub">Pick the period, then filter the people to include. Nothing is fetched for hours until you run the report.</p>
+  <div class="grid g2">
+    <div class="card" id="periodCard">
+      <h3>Reporting period</h3>
+      <div class="row">
+        <div><label>Preset</label><select id="preset"><option value="lastMonth">Last month</option><option value="lastWeek">Last week</option><option value="lastQuarter">Last quarter</option><option value="custom">Custom…</option></select></div>
+        <div><label>From</label><input type="date" id="dFrom"></div>
+        <div><label>To (inclusive)</label><input type="date" id="dTo"></div>
+      </div>
+      <label>Reporting time zone</label>
+      <input id="repTZ" list="tzlist">
+      <datalist id="tzlist"></datalist>
+      <div class="hint">Sets where the period starts and ends.</div>
+      <div class="disclaimer" id="disc1"></div>
+    </div>
+    <div class="card">
+      <h3>Filters <span class="hint">(combine any)</span></h3>
+      <div class="row"><div><label>Teams</label><select id="fTeams" multiple></select></div><div><label>Schedules</label><select id="fSched" multiple></select></div></div>
+      <div class="row"><div><label>Escalation policies</label><select id="fPol" multiple></select></div><div><label>Services</label><select id="fSvc" multiple></select></div></div>
+      <div class="row"><div><label>Role</label><select id="fRole" multiple><option>owner</option><option>admin</option><option>user</option><option>limited_user</option><option>observer</option><option>restricted_access</option><option>read_only_user</option><option>read_only_limited_user</option><option>responder</option></select></div>
+        <div><label>Import user IDs (CSV)</label><input type="file" id="fCsv" accept=".csv,.txt"><div class="hint" id="csvMsg"></div></div></div>
+      <div class="hint">Hold Ctrl/Cmd to pick several. Leave empty for "all".</div>
+      <div style="margin-top:10px"><button class="btn" id="findPeople">Find people</button> <span class="hint" id="findMsg"></span></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between"><h3 id="peopleTitle">People</h3>
+      <div class="row" style="flex:0"><input id="pSearch" placeholder="Search name, email, time zone, country" style="width:260px"><button class="btn ghost" id="pAll">All</button><button class="btn ghost" id="pNone">None</button></div></div>
+    <div class="hint">Time zone comes from each user's PagerDuty profile. Override it, or set the country used for public holidays, per person.</div>
+    <div class="scroll"><table><thead><tr><th>Include</th><th class="l">Name</th><th class="l">Team</th><th>Profile time zone</th><th>Override time zone</th><th>Holiday country</th></tr></thead><tbody id="peopleBody"></tbody></table></div>
+    <div class="empty" id="peopleEmpty">Click "Find people" to load the list.</div>
+  </div>
+  <div class="actions"><button class="btn ghost" data-go="0">← Back</button><button class="btn" data-go="2">Continue →</button></div>
+</section>
+
+<!-- STEP 3 -->
+<section class="screen" id="s2">
+  <div class="row" style="justify-content:space-between;align-items:flex-end">
+    <div style="flex:2"><h2>Rules</h2><p class="sub" style="margin:0">Define how hours are classified and, if you want, priced. The preview updates as you edit.</p></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>What should the report contain?</h3>
+    <div class="seg" role="group"><button id="mHours">Hours only</button><button id="mComp" class="on">Hours + compensation</button></div>
+    <label style="margin-top:12px"><input type="checkbox" id="incEng" style="width:auto"> Include engaged time (extra API calls; measured in on-call windows)</label>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <h3>Business &amp; night windows</h3>
+      <div class="row"><div><label>Business starts</label><input id="bs" type="time"></div><div><label>Business ends</label><input id="be" type="time"></div></div>
+      <div class="row"><div><label>Break starts (optional)</label><input id="brs" type="time"></div><div><label>Break ends</label><input id="bre" type="time"></div></div>
+      <div class="row"><div><label>Night starts</label><input id="ns" type="time"></div><div><label>Night ends</label><input id="ne" type="time"></div></div>
+      <label>Business days</label><div id="bdays"></div>
+      <label>Windows are evaluated in</label>
+      <select id="tzMode"><option value="responder">Each responder's own time zone (recommended)</option><option value="fixed">A fixed time zone…</option></select>
+      <input id="fixedTZ" list="tzlist" placeholder="e.g. Europe/London" class="hide" style="margin-top:6px">
+      <details><summary>Different hours on specific weekdays</summary><div class="hint" style="margin:8px 0">Leave blank to use the default window. Example: a short Friday.</div><div id="perDay"></div></details>
+    </div>
+    <div class="card">
+      <h3>Weekends &amp; holidays</h3>
+      <label>Weekend days</label><div id="wdays"></div>
+      <label>Holiday calendars</label>
+      <select id="holCal"><option value="country">By each responder's country (built-in public holidays) + manual dates</option><option value="manual">Manual dates only</option></select>
+      <label>Manual holiday dates (one per line, YYYY-MM-DD)</label><textarea id="holManual" rows="3"></textarea>
+      <label>Holidays should…</label>
+      <select id="holMode"><option value="bucket">Count as a Holiday bucket</option><option value="normal">Count as a normal day</option><option value="exclude">Be excluded from the report</option></select>
+      <label><input type="checkbox" id="holSplit" style="width:auto"> Split out "holiday night"</label>
+      <label>Priority when rules overlap (top wins)</label><div id="prec"></div>
+      <label>Someone on call at level 1 and level 2+ at once</label>
+      <select id="overlap"><option value="both">Count both levels</option><option value="highest">Count level 1 only</option></select>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Preview: how one week is classified</h3>
+    <div class="hint">Local clock hours, Mon–Sun. The Wednesday is shown as a sample holiday (when holidays are enabled).</div>
+    <div class="tl" id="tl"></div><div class="legend" id="lg"></div>
+  </div>
+  <div class="card pricing-only" style="margin-top:16px">
+    <h3>Compensation</h3>
+    <div class="fmt" style="margin-bottom:12px">
+      <label><input type="radio" name="style" id="stB" value="surcharge"><span><b>Base rate + surcharge %</b>One normal hourly rate, plus a % on top for each type of hour.</span></label>
+      <label><input type="radio" name="style" id="stA" value="rate"><span><b>A rate per type of hour</b>Enter the amount for each hour type directly.</span></label>
+    </div>
+    <div class="row"><div><label>Currency</label><input id="pCur" maxlength="5"></div>
+      <div><label>Rounding</label><select id="pRound"><option value="none">None</option><option value="nearest">Nearest 15 min</option><option value="up">Round up to 15 min</option></select></div>
+      <div id="baseWrap"><label>Base rate per hour</label><input id="pBase" type="number" step="0.01" min="0"></div></div>
+    <div class="scroll"><table style="margin-top:10px"><thead><tr><th class="l">Hour type</th><th id="thIn">Surcharge on base</th><th>Effective rate / hour</th></tr></thead><tbody id="rates"></tbody></table></div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Combined hours (weekend night, holiday night)</label><select id="pStack"><option value="add">Add the surcharges together</option><option value="max">Highest surcharge wins</option><option value="custom">Custom value</option></select></div>
+      <div><label>Level 2+ on-call</label><select id="pL2"><option value="same">Same rates as level 1</option><option value="separate">Separate rates…</option></select></div>
+    </div>
+    <div id="l2box" class="hide"><div class="hint" style="margin-top:8px">Level 2+ rates</div>
+      <div class="row"><div id="l2baseW"><label>Base rate per hour</label><input id="pBase2" type="number" step="0.01" min="0"></div></div>
+      <div class="scroll"><table><tbody id="rates2"></tbody></table></div></div>
+    <details open><summary>More: engaged time, stipend, caps</summary>
+      <div class="row"><div><label id="engLbl">Engaged time surcharge %</label><input id="pEng" type="number" step="0.01"></div>
+        <div><label>Flat stipend per person</label><input id="pStip" type="number" step="0.01" min="0"></div>
+        <div><label>Cap per person (0 = none)</label><input id="pCap" type="number" step="0.01" min="0"></div>
+        <div><label>Floor per person (0 = none)</label><input id="pFloor" type="number" step="0.01" min="0"></div></div>
+    </details>
+    <div class="hint">Every priced output is labeled as an estimate and lists the rates used.</div>
+    <div style="margin-top:10px"><button class="btn sec hide" id="reprice">Re-price the current report (no new API calls)</button> <span class="hint" id="repMsg"></span></div>
+  </div>
+  <div class="actions"><button class="btn ghost" data-go="1">← Back</button>
+    <div class="row" style="flex:0"><button class="btn sec" id="saveRep">Save as report</button><button class="btn" id="runBtn">Fetch &amp; review →</button></div></div>
+</section>
+
+<!-- STEP 4 -->
+<section class="screen" id="s3">
+  <h2>Review</h2>
+  <p class="sub" id="revSub">Run the report from the Rules step.</p>
+  <div class="card hide" id="fetchCard">
+    <div class="row" style="justify-content:space-between"><h3 id="fStage">Fetching data</h3>
+      <div class="row" style="flex:0"><button class="btn ghost" id="fPause">Pause</button><button class="btn ghost" id="fCancel">Cancel</button></div></div>
+    <div class="bar"><i id="fBar" style="width:0"></i></div>
+    <div class="hint" id="fStats"></div>
+    <div class="logbox hide" id="fLog"></div>
+  </div>
+  <div class="err hide" id="runErr"></div>
+  <div id="resultArea" class="hide">
+    <div id="warnArea"></div>
+    <div class="grid g3" style="margin-top:8px">
+      <div class="card kpi"><small>Total on-call hours</small><span id="kHours">0</span></div>
+      <div class="card kpi"><small>Engaged hours</small><span id="kEng">0</span></div>
+      <div class="card kpi pricing-only"><small>Total estimate</small><span id="kTot">0</span></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="row" style="justify-content:space-between"><h3>Summary by person <span class="hint">(click a row for details)</span></h3>
+        <div class="seg pricing-only" id="vw"><button data-v="h" class="on">Hours</button><button data-v="e">Estimate</button></div></div>
+      <div class="scroll" id="hoursView"></div>
+      <div class="scroll hide" id="estView"></div>
+      <div class="disclaimer" id="disc2"></div>
+    </div>
+    <div class="card hide" id="detail" style="margin-top:16px"></div>
+  </div>
+  <div class="actions"><button class="btn ghost" data-go="2">← Adjust rules</button><button class="btn" data-go="4">Export →</button></div>
+</section>
+
+<!-- STEP 5 -->
+<section class="screen" id="s4">
+  <h2>Export</h2>
+  <p class="sub">Choose one or more formats. Every file includes the rules used so numbers can be explained later.</p>
+  <div class="grid g2">
+    <div class="card"><h3>Formats</h3>
+      <div class="fmt">
+        <label><input type="checkbox" class="xf" value="pdf" checked><span><b>PDF report</b>Client-ready</span></label>
+        <label><input type="checkbox" class="xf" value="html" checked><span><b>HTML report</b>Single file</span></label>
+        <label><input type="checkbox" class="xf" value="csv"><span><b>CSV summary</b>One row per person</span></label>
+        <label><input type="checkbox" class="xf" value="csv_detail"><span><b>CSV by hour type</b>For payroll</span></label>
+        <label><input type="checkbox" class="xf" value="xlsx"><span><b>XLSX</b>Summary, estimate, detail</span></label>
+        <label><input type="checkbox" class="xf" value="json"><span><b>JSON</b>Raw classified hours</span></label>
+      </div></div>
+    <div class="card"><h3>Options</h3>
+      <label><input type="checkbox" id="xDetail" checked style="width:auto"> Include day-by-day detail</label>
+      <label><input type="checkbox" id="xRules" checked style="width:auto"> Include the rules and rates used</label>
+      <label><input type="checkbox" id="xAnon" style="width:auto"> Anonymize names</label>
+      <label>Report title</label><input id="xTitle">
+      <div class="disclaimer" id="disc3"></div></div>
+  </div>
+  <div class="actions"><button class="btn ghost" data-go="3">← Back</button><div class="row" style="flex:0"><button class="btn sec" id="saveRep2">Save as report</button><button class="btn" id="doExport">Export selected</button></div></div>
+</section>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const BUCKETS = ["business", "non_business", "night", "weekend", "weekend_night", "holiday", "holiday_night"];
+const LABEL = { business: "Business", non_business: "Non-business", night: "Night", weekend: "Weekend", weekend_night: "Weekend night", holiday: "Holiday", holiday_night: "Holiday night" };
+const COLOR = { business: "#06AC38", non_business: "#ADF07E", night: "#082B56", weekend: "#117170", weekend_night: "#0A4F4E", holiday: "#E8A317", holiday_night: "#B07A0B" };
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const PREC = { holiday: "Holiday", weekend: "Weekend", night: "Night", nonbusiness: "Non-business", business: "Business" };
+
+// ---------- state
+const S = {
+  conn: "", connections: [], reports: [], defaults: null, meta: null,
+  rules: null, pricing: null, people: [], reportId: "", reportName: "",
+  from: "", to: "", reportTZ: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  includeEngaged: false, holidayCalendar: "country", manualHolidays: [],
+  filters: { teamIds: [], scheduleIds: [], policyIds: [], serviceIds: [], roles: [], userIds: [] },
+  job: null, result: null, settings: JSON.parse(localStorage.getItem("oc_settings") || "null"),
+};
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: { "X-Requested-With": "oncall-ui", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const t = await r.text();
+  let j; try { j = JSON.parse(t); } catch { j = null; }
+  if (!r.ok) throw new Error((j && j.error) || t || r.statusText);
+  return j;
+}
+function showErr(msg) { const e = $("globalErr"); e.textContent = msg; e.classList.toggle("hide", !msg); if (msg) window.scrollTo(0, 0); }
+async function guard(fn) { try { showErr(""); return await fn(); } catch (e) { showErr(e.message); } }
+
+// ---------- navigation
+const steps = [...document.querySelectorAll("#steps button")], screens = [...document.querySelectorAll(".screen")];
+function go(n) {
+  n = String(n); showErr("");
+  screens.forEach(s => s.classList.toggle("on", s.id == "s" + n));
+  steps.forEach(b => { b.classList.toggle("on", b.dataset.s == n); b.classList.toggle("done", n != "H" && b.dataset.s != "H" && +b.dataset.s < +n); });
+  window.scrollTo(0, 0);
+  if (n == "4") { $("xTitle").value ||= S.reportName || "On-call report"; }
+  refreshDisclaimers();
+}
+steps.forEach(b => b.onclick = () => go(b.dataset.s));
+document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
+
+function refreshDisclaimers() {
+  const t = `Period boundaries use ${S.reportTZ || "the reporting time zone"}; hours are classified in each responder's local time.`;
+  ["disc1", "disc2", "disc3"].forEach(i => $(i).textContent = t);
+}
+
+// ---------- init
+async function init() {
+  const st = await api("GET", "/api/state");
+  S.connections = st.connections || []; S.reports = st.reports || []; S.defaults = st.defaults;
+  S.settings ||= st.defaults.settings;
+  if (!S.rules) { S.rules = structuredClone(st.defaults.rules); S.pricing = structuredClone(st.defaults.pricing); }
+  S.conn ||= (S.connections[0] || {}).id || "";
+  const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : []).concat(["UTC"]);
+  $("tzlist").innerHTML = zones.map(z => `<option value="${z}">`).join("");
+  applyPreset("lastMonth");
+  renderConnections(); renderReports(); bindRules(); fillRules(); fillPricing(); renderPeople(); refreshDisclaimers();
+  $("aDelay").value = S.settings.delayMs; $("aRetries").value = S.settings.maxRetries; $("aTimeout").value = S.settings.timeoutS;
+  ["aDelay", "aRetries", "aTimeout"].forEach(i => $(i).onchange = () => {
+    S.settings = { delayMs: +$("aDelay").value || 0, maxRetries: +$("aRetries").value || 0, timeoutS: +$("aTimeout").value || 30 };
+    localStorage.setItem("oc_settings", JSON.stringify(S.settings));
+  });
+  go("H");
+}
+
+// ---------- home & connections
+function renderConnections() {
+  const cur = S.connections.find(c => c.id == S.conn);
+  $("connBadge").textContent = cur ? "● Connected: " + cur.name : "Not connected";
+  const row = c => `<div class="row" style="justify-content:space-between;margin:6px 0"><div><b>${esc(c.name)}</b> ${c.id == S.conn ? "<span class='chip on'>in use</span>" : ""}
+    <div class="hint">${c.region.toUpperCase()} · key ending …${esc(c.keyTail)} · Analytics ${c.analytics ? "✔" : "not detected"}</div></div>
+    <div class="row" style="flex:0"><button class="btn ghost" data-use="${c.id}">Use</button><button class="btn ghost" data-del="${c.id}">Forget</button></div></div>`;
+  const html = S.connections.length ? S.connections.map(row).join("") : `<div class="empty">No connection yet. Add one below.</div>`;
+  $("connList").innerHTML = html;
+  $("homeConn").innerHTML = cur ? `<b>${esc(cur.name)}</b><div class="hint">Key stored in your computer's credential store · Analytics ${cur.analytics ? "✔" : "not detected"}</div><div style="margin-top:8px"><button class="btn ghost" data-go="0">Manage</button></div>`
+    : `<div class="empty">Not connected. <a href="#" data-go="0">Add a connection</a></div>`;
+  document.querySelectorAll("#homeConn [data-go]").forEach(b => b.onclick = e => { e.preventDefault(); go(0); });
+  document.querySelectorAll("[data-use]").forEach(b => b.onclick = () => { S.conn = b.dataset.use; S.meta = null; renderConnections(); });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => guard(async () => {
+    if (!confirm("Forget this connection and delete its stored API key?")) return;
+    await api("DELETE", "/api/connections/" + b.dataset.del);
+    S.connections = S.connections.filter(c => c.id != b.dataset.del); if (S.conn == b.dataset.del) S.conn = (S.connections[0] || {}).id || ""; renderConnections();
+  }));
+}
+$("cSave").onclick = () => guard(async () => {
+  $("cMsg").textContent = "Checking the key with PagerDuty…";
+  try {
+    const c = await api("POST", "/api/connections", { name: $("cName").value, region: $("cRegion").value, token: $("cKey").value });
+    S.connections.push(c); S.conn = c.id; S.meta = null; $("cKey").value = ""; $("cName").value = "";
+    $("cMsg").textContent = c.analytics ? "Saved. Analytics access detected." : "Saved. Analytics was not detected; engaged time may be unavailable on this plan.";
+    renderConnections();
+  } catch (e) { $("cMsg").textContent = ""; throw e; }
+});
+
+function renderReports() {
+  const el = $("reportList");
+  if (!S.reports.length) { el.innerHTML = `<div class="empty">No saved reports yet. Build one and press "Save as report".</div>`; return; }
+  el.innerHTML = `<div class="scroll"><table><thead><tr><th class="l">Name</th><th>People</th><th>Last run</th><th></th></tr></thead><tbody>` +
+    S.reports.map(r => { let c = {}; try { c = r.config || {}; } catch { }
+      return `<tr><td class="l"><b>${esc(r.name)}</b></td><td>${(c.people || []).length}</td><td>${esc(r.lastRun || "–")}</td>
+      <td><button class="btn" data-run="${r.id}">Run with new dates</button> <button class="btn ghost" data-dup="${r.id}">Duplicate</button> <button class="btn ghost" data-rm="${r.id}">Delete</button></td></tr>`; }).join("") + `</tbody></table></div>`;
+  el.querySelectorAll("[data-run]").forEach(b => b.onclick = () => loadReport(b.dataset.run, false));
+  el.querySelectorAll("[data-dup]").forEach(b => b.onclick = () => loadReport(b.dataset.dup, true));
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => guard(async () => {
+    if (!confirm("Delete this saved report?")) return; await api("DELETE", "/api/reports/" + b.dataset.rm);
+    S.reports = S.reports.filter(r => r.id != b.dataset.rm); renderReports();
+  }));
+}
+function loadReport(id, dup) {
+  const r = S.reports.find(x => x.id == id); if (!r) return;
+  const c = r.config;
+  S.reportId = dup ? "" : r.id; S.reportName = dup ? r.name + " (copy)" : r.name;
+  if (r.connId && S.connections.some(x => x.id == r.connId)) S.conn = r.connId;
+  S.rules = Object.assign(structuredClone(S.defaults.rules), c.rules || {});
+  S.pricing = Object.assign(structuredClone(S.defaults.pricing), c.pricing || {});
+  S.people = c.people || []; S.reportTZ = c.reportTZ || S.reportTZ;
+  S.includeEngaged = !!c.includeEngaged; S.holidayCalendar = c.holidayCalendar || "country"; S.manualHolidays = c.manualHolidays || [];
+  S.filters = Object.assign(S.filters, (c.ui || {}).filters || {});
+  applyPreset("lastMonth"); // dates are the one thing to choose again
+  renderConnections(); fillRules(); fillPricing(); renderPeople(); fillFilters(); refreshDisclaimers();
+  $("periodCard").style.outline = "2px solid var(--green)"; setTimeout(() => $("periodCard").style.outline = "", 2500);
+  go(1);
+}
+$("newReport").onclick = () => {
+  S.reportId = ""; S.reportName = ""; S.people = []; S.rules = structuredClone(S.defaults.rules); S.pricing = structuredClone(S.defaults.pricing);
+  S.includeEngaged = false; S.manualHolidays = []; S.filters = { teamIds: [], scheduleIds: [], policyIds: [], serviceIds: [], roles: [], userIds: [] };
+  fillRules(); fillPricing(); renderPeople(); fillFilters(); go(S.conn ? 1 : 0);
+};
+
+// ---------- step 2
+function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function applyPreset(p) {
+  const n = new Date(); let f, t;
+  if (p == "lastMonth") { f = new Date(n.getFullYear(), n.getMonth() - 1, 1); t = new Date(n.getFullYear(), n.getMonth(), 0); }
+  else if (p == "lastWeek") { const d = (n.getDay() + 6) % 7; t = new Date(n.getFullYear(), n.getMonth(), n.getDate() - d - 1); f = new Date(t.getFullYear(), t.getMonth(), t.getDate() - 6); }
+  else if (p == "lastQuarter") { const q = Math.floor(n.getMonth() / 3); f = new Date(n.getFullYear(), (q - 1) * 3, 1); t = new Date(n.getFullYear(), q * 3, 0); }
+  else return;
+  S.from = ymd(f); S.to = ymd(t); $("dFrom").value = S.from; $("dTo").value = S.to; $("preset").value = p; $("repTZ").value = S.reportTZ;
+}
+$("preset").onchange = () => applyPreset($("preset").value);
+$("dFrom").onchange = () => { S.from = $("dFrom").value; $("preset").value = "custom"; };
+$("dTo").onchange = () => { S.to = $("dTo").value; $("preset").value = "custom"; };
+$("repTZ").onchange = () => { S.reportTZ = $("repTZ").value; refreshDisclaimers(); };
+
+function fillSelect(id, items, selected) {
+  $(id).innerHTML = items.map(i => `<option value="${esc(i.id)}" ${selected.includes(i.id) ? "selected" : ""}>${esc(i.name)}</option>`).join("");
+}
+function fillFilters() {
+  if (!S.meta) return;
+  fillSelect("fTeams", S.meta.Teams || [], S.filters.teamIds); fillSelect("fSched", S.meta.Schedules || [], S.filters.scheduleIds);
+  fillSelect("fPol", S.meta.Policies || [], S.filters.policyIds); fillSelect("fSvc", S.meta.Services || [], S.filters.serviceIds);
+  [...$("fRole").options].forEach(o => o.selected = S.filters.roles.includes(o.value));
+}
+const sel = id => [...$(id).selectedOptions].map(o => o.value);
+$("fCsv").onchange = async () => {
+  const f = $("fCsv").files[0]; if (!f) return;
+  const ids = (await f.text()).split(/[\s,;]+/).map(s => s.trim()).filter(s => /^P[A-Z0-9]{5,}$/i.test(s));
+  S.filters.userIds = ids; $("csvMsg").textContent = ids.length + " user IDs found";
+};
+$("findPeople").onclick = () => guard(async () => {
+  if (!S.conn) throw new Error("Connect to PagerDuty first (step 1).");
+  $("findMsg").textContent = "Loading from PagerDuty… (the first load can take a minute for large accounts)";
+  try {
+    if (!S.meta) { S.meta = await api("GET", "/api/meta?conn=" + S.conn); fillFilters(); }
+    S.filters.teamIds = sel("fTeams"); S.filters.scheduleIds = sel("fSched"); S.filters.policyIds = sel("fPol"); S.filters.serviceIds = sel("fSvc"); S.filters.roles = sel("fRole");
+    const list = await api("POST", "/api/people", { conn: S.conn, from: S.from, to: S.to, reportTZ: S.reportTZ, ...S.filters, settings: S.settings });
+    const old = Object.fromEntries(S.people.map(p => [p.id, p]));
+    S.people = list.map(u => ({ id: u.id, name: u.name, team: u.team, timeZone: u.timeZone, tzOverride: (old[u.id] || {}).tzOverride || "", country: (old[u.id] || {}).country || u.country || "", include: old[u.id] ? old[u.id].include !== false : true }));
+    renderPeople(); $("findMsg").textContent = "";
+  } catch (e) { $("findMsg").textContent = ""; throw e; }
+});
+function renderPeople() {
+  const q = ($("pSearch").value || "").toLowerCase();
+  const rows = S.people.map((p, i) => ({ p, i })).filter(({ p }) => !q || [p.name, p.team, p.timeZone, p.tzOverride, p.country].join(" ").toLowerCase().includes(q));
+  $("peopleEmpty").classList.toggle("hide", S.people.length > 0);
+  const n = S.people.filter(p => p.include !== false).length;
+  $("peopleTitle").textContent = `People: ${n} of ${S.people.length} selected`;
+  $("peopleBody").innerHTML = rows.map(({ p, i }) => `<tr><td><input type="checkbox" data-i="${i}" class="pi" style="width:auto" ${p.include !== false ? "checked" : ""}></td>
+    <td class="l">${esc(p.name)}</td><td class="l">${esc(p.team)}</td><td>${esc(p.timeZone || "—")}</td>
+    <td><input data-i="${i}" class="pz" list="tzlist" value="${esc(p.tzOverride)}" placeholder="use profile" style="width:170px"></td>
+    <td><input data-i="${i}" class="pc" value="${esc(p.country)}" maxlength="2" style="width:56px;text-transform:uppercase"></td></tr>`).join("");
+  document.querySelectorAll(".pi").forEach(e => e.onchange = () => { S.people[+e.dataset.i].include = e.checked; renderPeopleTitle(); });
+  document.querySelectorAll(".pz").forEach(e => e.onchange = () => S.people[+e.dataset.i].tzOverride = e.value.trim());
+  document.querySelectorAll(".pc").forEach(e => e.onchange = () => S.people[+e.dataset.i].country = e.value.trim().toUpperCase());
+}
+function renderPeopleTitle() { $("peopleTitle").textContent = `People: ${S.people.filter(p => p.include !== false).length} of ${S.people.length} selected`; }
+$("pSearch").oninput = renderPeople;
+$("pAll").onclick = () => { S.people.forEach(p => p.include = true); renderPeople(); };
+$("pNone").onclick = () => { S.people.forEach(p => p.include = false); renderPeople(); };
+
+// ---------- step 3: rules
+function chips(el, selected, onChange) {
+  $(el).innerHTML = DAYS.map((d, i) => `<span class="chip ${selected().includes(i) ? "on" : ""}" data-d="${i}" role="button" tabindex="0">${d}</span>`).join("");
+  $(el).querySelectorAll(".chip").forEach(c => c.onclick = () => { const d = +c.dataset.d, s = selected(); onChange(s.includes(d) ? s.filter(x => x != d) : [...s, d].sort()); chips(el, selected, onChange); drawTL(); });
+}
+function readRules() {
+  const R = S.rules;
+  R.businessStart = $("bs").value || "09:00"; R.businessEnd = $("be").value || "17:00";
+  R.breakStart = $("brs").value; R.breakEnd = $("bre").value; R.nightStart = $("ns").value || "22:00"; R.nightEnd = $("ne").value || "06:00";
+  R.tzMode = $("tzMode").value; R.fixedTZ = $("fixedTZ").value; R.holidayMode = $("holMode").value; R.splitHolidayNight = $("holSplit").checked; R.overlap = $("overlap").value;
+  R.perDay = {};
+  for (let d = 0; d < 7; d++) { const a = $("pd" + d + "s").value, b = $("pd" + d + "e").value; if (a && b) R.perDay[d] = { start: a, end: b }; }
+  S.includeEngaged = $("incEng").checked; S.holidayCalendar = $("holCal").value;
+  S.manualHolidays = $("holManual").value.split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s));
+  $("fixedTZ").classList.toggle("hide", R.tzMode != "fixed");
+}
+function bindRules() {
+  ["bs", "be", "brs", "bre", "ns", "ne", "tzMode", "fixedTZ", "holMode", "holSplit", "overlap", "incEng", "holCal", "holManual"].forEach(i => $(i).addEventListener("input", () => { readRules(); drawTL(); }));
+  $("perDay").innerHTML = DAYS.map((d, i) => `<div class="row" style="margin:4px 0"><span style="flex:0 0 40px">${d}</span><input type="time" id="pd${i}s"><input type="time" id="pd${i}e"></div>`).join("");
+  document.querySelectorAll("#perDay input").forEach(e => e.addEventListener("input", () => { readRules(); drawTL(); }));
+  $("lg").innerHTML = BUCKETS.map(k => `<span><span class="dot" style="background:${COLOR[k]}"></span>${LABEL[k]}</span>`).join("");
+  $("mHours").onclick = () => setMode(false); $("mComp").onclick = () => setMode(true);
+}
+function setMode(c) { S.pricing.enabled = c; document.body.classList.toggle("hours-only", !c); $("mComp").classList.toggle("on", c); $("mHours").classList.toggle("on", !c); renderResult(); }
+function fillRules() {
+  const R = S.rules;
+  $("bs").value = R.businessStart; $("be").value = R.businessEnd; $("brs").value = R.breakStart || ""; $("bre").value = R.breakEnd || "";
+  $("ns").value = R.nightStart; $("ne").value = R.nightEnd; $("tzMode").value = R.tzMode; $("fixedTZ").value = R.fixedTZ || ""; $("fixedTZ").classList.toggle("hide", R.tzMode != "fixed");
+  $("holMode").value = R.holidayMode; $("holSplit").checked = !!R.splitHolidayNight; $("overlap").value = R.overlap;
+  for (let d = 0; d < 7; d++) { const w = (R.perDay || {})[d] || {}; $("pd" + d + "s").value = w.start || ""; $("pd" + d + "e").value = w.end || ""; }
+  $("incEng").checked = S.includeEngaged; $("holCal").value = S.holidayCalendar; $("holManual").value = S.manualHolidays.join("\n");
+  chips("bdays", () => R.businessDays, v => R.businessDays = v); chips("wdays", () => R.weekendDays, v => R.weekendDays = v);
+  renderPrec(); setMode(S.pricing.enabled !== false); drawTL();
+}
+function renderPrec() {
+  const P = S.rules.precedence;
+  $("prec").innerHTML = P.map((k, i) => `<div class="row reorder" style="justify-content:space-between;margin:2px 0"><span>${i + 1}. ${PREC[k]}</span><span style="flex:0"><button class="btn ghost" data-up="${i}" ${i == 0 ? "disabled" : ""}>↑</button><button class="btn ghost" data-dn="${i}" ${i == P.length - 1 ? "disabled" : ""}>↓</button></span></div>`).join("");
+  $("prec").querySelectorAll("[data-up]").forEach(b => b.onclick = () => { const i = +b.dataset.up;[P[i - 1], P[i]] = [P[i], P[i - 1]]; renderPrec(); drawTL(); });
+  $("prec").querySelectorAll("[data-dn]").forEach(b => b.onclick = () => { const i = +b.dataset.dn;[P[i + 1], P[i]] = [P[i], P[i + 1]]; renderPrec(); drawTL(); });
+}
+// preview: mirrors the engine's classification on a local-clock sample week
+const mins = v => { const [a, b] = (v || "0:0").split(":"); return +a * 60 + +b; };
+const inWin = (m, s, e) => s == e ? false : s < e ? (m >= s && m < e) : (m >= s || m < e);
+function classifyPreview(wd, hour, holiday) {
+  const R = S.rules, m = hour * 60;
+  const pd = (R.perDay || {})[wd]; const bs = mins(pd ? pd.start : R.businessStart), be = mins(pd ? pd.end : R.businessEnd);
+  const hol = R.holidayMode != "normal" && holiday, night = inWin(m, mins(R.nightStart), mins(R.nightEnd)), wk = R.weekendDays.includes(wd);
+  let biz = R.businessDays.includes(wd) && !wk && inWin(m, bs, be);
+  if (biz && R.breakStart && R.breakEnd && inWin(m, mins(R.breakStart), mins(R.breakEnd))) biz = false;
+  for (const p of R.precedence) {
+    if (p == "holiday" && hol) { if (R.holidayMode == "exclude") return "excluded"; return night && R.splitHolidayNight ? "holiday_night" : "holiday"; }
+    if (p == "weekend" && wk) return night ? "weekend_night" : "weekend";
+    if (p == "night" && night) return "night";
+    if (p == "nonbusiness" && !biz) return "non_business";
+    if (p == "business" && biz) return "business";
+  }
+  return "non_business";
+}
+function drawTL() {
+  if (!S.rules) return;
+  let h = "<div></div>" + [...Array(24).keys()].map(x => `<div class="h">${x}</div>`).join("");
+  [1, 2, 3, 4, 5, 6, 0].forEach(wd => {
+    h += `<div class="d">${DAYS[wd]}</div>`;
+    for (let x = 0; x < 24; x++) { const k = classifyPreview(wd, x, wd == 3); h += `<div style="background:${COLOR[k] || "#999"}" title="${DAYS[wd]} ${x}:00 · ${LABEL[k] || "Excluded"}"></div>`; }
+  });
+  $("tl").innerHTML = h;
+}
+
+// ---------- pricing UI (mirrors internal/pricing)
+const eff = (P, rs, b) => {
+  if (P.style == "rate") return +(rs.rate || {})[b] || 0;
+  const s = rs.surcharge || {}; let pct = +s[b] || 0;
+  if (P.stack != "custom") {
+    const comb = (a, c) => P.stack == "max" ? Math.max(a, c) : a + c;
+    if (b == "weekend_night") pct = comb(+s.weekend || 0, +s.night || 0);
+    if (b == "holiday_night") pct = comb(+s.holiday || 0, +s.night || 0);
+  }
+  return (+rs.base || 0) * (1 + pct / 100);
+};
+function fillPricing() {
+  const P = S.pricing; P.l1.surcharge ||= {}; P.l1.rate ||= {}; P.l2.surcharge ||= {}; P.l2.rate ||= {};
+  $(P.style == "rate" ? "stA" : "stB").checked = true;
+  $("pCur").value = P.currency; $("pRound").value = (P.roundMode == "none" || !P.roundMode) ? "none" : P.roundMode; $("pBase").value = P.l1.base;
+  $("pStack").value = P.stack; $("pL2").value = P.level2; $("pBase2").value = P.l2.base || 0;
+  $("pEng").value = P.style == "rate" ? P.l1.engagedRate : P.l1.engagedSurcharge;
+  $("pStip").value = P.stipendPerPerson || 0; $("pCap").value = P.capPerPerson || 0; $("pFloor").value = P.floorPerPerson || 0;
+  renderRates();
+}
+function renderRates() {
+  const P = S.pricing, B = P.style != "rate";
+  $("baseWrap").classList.toggle("hide", !B); $("l2baseW").classList.toggle("hide", !B);
+  $("thIn").textContent = B ? "Surcharge on base" : "Rate per hour"; $("engLbl").textContent = B ? "Engaged time surcharge %" : "Engaged time rate per hour";
+  $("l2box").classList.toggle("hide", P.level2 != "separate");
+  const rows = (rs, tag) => BUCKETS.map(b => {
+    const auto = P.stack != "custom" && P.style != "rate" && (b == "weekend_night" || b == "holiday_night");
+    const v = B ? (rs.surcharge[b] ?? 0) : (rs.rate[b] ?? 0);
+    const inp = auto ? `<span class="hint">auto</span>` : `<input class="mini" data-t="${tag}" data-b="${b}" type="number" step="0.01" value="${v}"> ${B ? "%" : ""}`;
+    return `<tr><td class="l">${LABEL[b]}</td><td>${inp}</td><td><b>${eff(P, rs, b).toFixed(2)}</b></td></tr>`;
+  }).join("");
+  $("rates").innerHTML = rows(P.l1, "l1"); $("rates2").innerHTML = rows(P.l2, "l2");
+  document.querySelectorAll("#rates input, #rates2 input").forEach(e => e.onchange = () => { const rs = e.dataset.t == "l1" ? P.l1 : P.l2; (B ? rs.surcharge : rs.rate)[e.dataset.b] = +e.value || 0; renderRates(); });
+}
+function readPricing() {
+  const P = S.pricing; P.style = $("stA").checked ? "rate" : "surcharge"; P.currency = $("pCur").value || "USD";
+  const rm = $("pRound").value; P.roundMode = rm; P.roundMinutes = rm == "none" ? 0 : 15;
+  P.l1.base = +$("pBase").value || 0; P.l2.base = +$("pBase2").value || 0; P.stack = $("pStack").value; P.level2 = $("pL2").value;
+  const e = +$("pEng").value || 0; if (P.style == "rate") P.l1.engagedRate = e; else P.l1.engagedSurcharge = e;
+  P.stipendPerPerson = +$("pStip").value || 0; P.capPerPerson = +$("pCap").value || 0; P.floorPerPerson = +$("pFloor").value || 0;
+}
+["stA", "stB", "pCur", "pRound", "pBase", "pBase2", "pStack", "pL2", "pEng", "pStip", "pCap", "pFloor"].forEach(i => $(i).addEventListener("input", () => { readPricing(); renderRates(); }));
+$("reprice").onclick = () => guard(async () => {
+  readPricing(); const r = await api("POST", `/api/jobs/${S.job}/reprice`, S.pricing);
+  S.result = r; $("repMsg").textContent = "Report re-priced from the data already fetched."; renderResult();
+});
+
+// ---------- save / run
+function buildConfig() {
+  readRules(); readPricing();
+  const people = S.people.filter(p => p.include !== false).map(p => ({ id: p.id, name: p.name, team: p.team, timeZone: p.timeZone, tzOverride: p.tzOverride || "", country: p.country || "" }));
+  return {
+    name: S.reportName, from: S.from, to: S.to, reportTZ: S.reportTZ, people, scheduleIds: S.filters.scheduleIds, policyIds: S.filters.policyIds,
+    rules: S.rules, holidayCalendar: S.holidayCalendar, manualHolidays: S.manualHolidays, includeEngaged: S.includeEngaged, pricing: S.pricing,
+    ui: { filters: S.filters },
+  };
+}
+async function saveReport() {
+  let name = S.reportName || prompt("Name for this saved report:", "");
+  if (!name) return; S.reportName = name;
+  const cfg = buildConfig(); cfg.name = name; cfg.from = ""; cfg.to = ""; // dates are chosen on each run
+  const saved = await api("POST", "/api/reports", { id: S.reportId, name, connId: S.conn, config: cfg, lastRun: S.from + " – " + S.to });
+  S.reportId = saved.id; S.reports = (await api("GET", "/api/state")).reports; renderReports();
+  alert("Saved. You'll find it on the Home screen.");
+}
+$("saveRep").onclick = () => guard(saveReport); $("saveRep2").onclick = () => guard(saveReport);
+
+let pollTimer = null;
+$("runBtn").onclick = () => guard(async () => {
+  const cfg = buildConfig();
+  if (!S.conn) throw new Error("Connect to PagerDuty first (step 1).");
+  if (!cfg.people.length) throw new Error("No people selected. Go back to \"Who & when\" and click \"Find people\".");
+  if (!cfg.from || !cfg.to) throw new Error("Pick the dates first.");
+  S.result = null; $("resultArea").classList.add("hide"); $("runErr").classList.add("hide"); $("fetchCard").classList.remove("hide"); $("reprice").classList.add("hide");
+  const j = await api("POST", "/api/run", { conn: S.conn, config: cfg, settings: S.settings });
+  S.job = j.jobId; $("revSub").textContent = `${cfg.people.length} people · ${cfg.from} to ${cfg.to}`; go(3); poll();
+});
+function poll() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    try {
+      const j = await api("GET", "/api/jobs/" + S.job);
+      $("fStage").textContent = j.status == "paused" ? "Paused" : (j.stage || "Fetching data");
+      $("fBar").style.width = (j.total ? Math.round(100 * j.done / j.total) : 5) + "%";
+      $("fStats").textContent = `${j.calls} calls made · ${j.rateLimitWaits} rate-limit waits · ${j.retries} retries`;
+      const lg = $("fLog"); lg.classList.toggle("hide", !(j.log || []).length); lg.textContent = (j.log || []).slice(-8).join("\n");
+      $("fPause").textContent = j.status == "paused" ? "Resume" : "Pause";
+      if (j.status == "done") { S.result = j.result; $("fetchCard").classList.add("hide"); renderResult(); $("reprice").classList.remove("hide"); return; }
+      if (j.status == "error" || j.status == "cancelled") {
+        $("fetchCard").classList.add("hide"); const e = $("runErr"); e.classList.remove("hide");
+        e.textContent = j.status == "cancelled" ? "The run was cancelled." : j.error; return;
+      }
+    } catch (e) { showErr(e.message); return; }
+    poll();
+  }, 700);
+}
+$("fPause").onclick = () => guard(async () => { const paused = $("fPause").textContent == "Resume"; await api("POST", `/api/jobs/${S.job}/${paused ? "resume" : "pause"}`); });
+$("fCancel").onclick = () => guard(() => api("POST", `/api/jobs/${S.job}/cancel`));
+
+// ---------- results
+const hrs = s => (s / 3600);
+const f2 = n => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
+let detailIdx = -1;
+function renderResult() {
+  const r = S.result; if (!r) return;
+  $("resultArea").classList.remove("hide");
+  const priced = S.pricing.enabled !== false && r.people.some(p => p.amounts);
+  const cur = r.config.pricing.currency || "";
+  const showHN = r.config.rules.splitHolidayNight || r.people.some(p => (p.l1.holiday_night || 0) > 0);
+  const bs = BUCKETS.filter(b => b != "holiday_night" || showHN);
+  const th = b => `<th><span class="dot" style="background:${COLOR[b]}"></span>${LABEL[b]}</th>`;
+  const warns = [];
+  r.people.forEach(p => (p.incomplete || []).forEach(m => warns.push(`${esc(p.name)}: ${esc(m)}`)));
+  (r.warnings || []).forEach(w => warns.push(esc(w)));
+  $("warnArea").innerHTML = warns.length ? `<div class="warn" style="margin-bottom:12px"><b>Please review.</b> ${r.people.some(p => (p.incomplete || []).length) ? "Some data could not be fetched; the affected people and days are incomplete in this report." : "Some notes about this report:"}<ul style="margin:6px 0 0 18px">${warns.slice(0, 20).map(w => `<li>${w}</li>`).join("")}</ul></div>` : "";
+  let T = {}, t1 = 0, t2 = 0, te = 0;
+  const rows = r.people.map((p, i) => {
+    BUCKETS.forEach(b => T[b] = (T[b] || 0) + (p.l1[b] || 0)); const a = sum(p.l1), c = sum(p.l2), e = sum(p.engaged); t1 += a; t2 += c; te += e;
+    return `<tr class="clickable" data-i="${i}"><td class="l">${esc(p.name)}</td><td>${esc(p.tzOverride || p.timeZone)}</td>${bs.map(b => `<td>${f2(hrs(p.l1[b] || 0))}</td>`).join("")}<td><b>${f2(hrs(a))}</b></td><td>${f2(hrs(c))}</td><td>${f2(hrs(e))}</td></tr>`;
+  }).join("");
+  $("hoursView").innerHTML = `<table><thead><tr><th class="l">Person</th><th>Time zone</th>${bs.map(th).join("")}<th>Level 1 total</th><th>Level 2+</th><th>Engaged</th></tr></thead><tbody>${rows}</tbody>
+    <tfoot><tr><td class="l">Total</td><td></td>${bs.map(b => `<td>${f2(hrs(T[b] || 0))}</td>`).join("")}<td>${f2(hrs(t1))}</td><td>${f2(hrs(t2))}</td><td>${f2(hrs(te))}</td></tr></tfoot></table>`;
+  $("kHours").textContent = f2(hrs(t1 + t2)); $("kEng").textContent = f2(hrs(te));
+  if (priced) {
+    let A = {}, ae = 0, as = 0, at = 0;
+    const er = r.people.map((p, i) => { const a = p.amounts; bs.forEach(b => A[b] = (A[b] || 0) + a.byBucket[b]); ae += a.engaged; as += a.stipend; at += a.total;
+      return `<tr class="clickable" data-i="${i}"><td class="l">${esc(p.name)}</td>${bs.map(b => `<td>${f2(a.byBucket[b] || 0)}</td>`).join("")}<td>${f2(a.engaged)}</td><td>${f2(a.stipend)}</td><td><b>${f2(a.total)}</b>${a.note ? ` <span class="hint">(${esc(a.note)})</span>` : ""}</td></tr>`; }).join("");
+    $("estView").innerHTML = `<table><thead><tr><th class="l">Person</th>${bs.map(th).join("")}<th>Engaged</th><th>Stipend</th><th>Total estimate (${esc(cur)})</th></tr></thead><tbody>${er}</tbody>
+      <tfoot><tr><td class="l">Total</td>${bs.map(b => `<td>${f2(A[b] || 0)}</td>`).join("")}<td>${f2(ae)}</td><td>${f2(as)}</td><td>${f2(at)}</td></tr></tfoot></table><div class="disclaimer">Estimate, not payroll.</div>`;
+    $("kTot").textContent = cur + " " + f2(at);
+  }
+  document.querySelectorAll("#hoursView .clickable, #estView .clickable").forEach(tr => tr.onclick = () => showDetail(+tr.dataset.i));
+  document.querySelectorAll(".pricing-only").forEach(e => e.classList.toggle("hide", !priced));
+  document.body.classList.toggle("hours-only", !priced);
+  if (!priced) { $("hoursView").classList.remove("hide"); $("estView").classList.add("hide"); }
+  if (detailIdx >= 0) showDetail(detailIdx);
+}
+document.querySelectorAll("#vw button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#vw button").forEach(x => x.classList.toggle("on", x == b));
+  $("hoursView").classList.toggle("hide", b.dataset.v == "e"); $("estView").classList.toggle("hide", b.dataset.v != "e");
+});
+function showDetail(i) {
+  detailIdx = i; const p = S.result.people[i]; const d = $("detail"); d.classList.remove("hide");
+  const bs = BUCKETS.filter(b => b != "holiday_night" || S.result.config.rules.splitHolidayNight || p.days.some(x => x.hours.holiday_night));
+  d.innerHTML = `<div class="row" style="justify-content:space-between"><h3>Detail: ${esc(p.name)} · ${esc(p.tzOverride || p.timeZone)}</h3><span class="hint">Day by day, in the responder's local days</span></div>
+    <div class="scroll"><table><thead><tr><th class="l">Date</th><th>Day</th>${bs.map(b => `<th>${LABEL[b]}</th>`).join("")}<th>Level 2+</th><th>Engaged</th><th class="l">Note</th></tr></thead><tbody>` +
+    (p.days.length ? p.days.map(x => `<tr><td class="l">${x.date}</td><td>${x.dayType}</td>${bs.map(b => `<td>${x.hours[b] ? f2(hrs(x.hours[b])) : "–"}</td>`).join("")}<td>${x.l2 ? f2(hrs(x.l2)) : "–"}</td><td>${x.engaged ? f2(hrs(x.engaged)) : "–"}</td><td class="l">${esc(x.note || "")}</td></tr>`).join("") : `<tr><td colspan="${bs.length + 5}" class="empty">No on-call time in this period.</td></tr>`) + `</tbody></table></div>`;
+  d.scrollIntoView({ behavior: "smooth" });
+}
+
+// ---------- export
+$("doExport").onclick = () => guard(async () => {
+  if (!S.job || !S.result) throw new Error("Run the report first.");
+  const fm = [...document.querySelectorAll(".xf:checked")].map(e => e.value);
+  if (!fm.length) throw new Error("Choose at least one format.");
+  for (const f of fm) {
+    const q = new URLSearchParams({ format: f, title: $("xTitle").value, detail: $("xDetail").checked ? 1 : 0, rules: $("xRules").checked ? 1 : 0, anon: $("xAnon").checked ? 1 : 0 });
+    const a = document.createElement("a"); a.href = `/api/jobs/${S.job}/export?` + q; a.download = ""; document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, 400));
+  }
+});
+
+init().catch(e => showErr("Could not start: " + e.message));
+
+</script>
+</body></html>
