@@ -228,55 +228,120 @@ func chunk(s []string, n int) [][]string {
 }
 
 // EngagedSeconds returns engaged seconds per responder for incidents in [from, to) using
-// Analytics. All pages are followed. If the primary path is not found, the older path is tried.
+// Analytics. All pages are followed. Some Analytics endpoints return one aggregated row for all
+// the responders asked about, with no responder_id. When that happens the responders are queried
+// one at a time so every number is attributed to the right person.
 func (c *Client) EngagedSeconds(ctx context.Context, from, to time.Time, responderIDs []string) (map[string]float64, error) {
 	out := map[string]float64{}
 	for _, ids := range chunk(responderIDs, 100) {
-		body := map[string]any{
-			"filters": map[string]any{
-				"date_range_start": from.UTC().Format(time.RFC3339),
-				"date_range_end":   to.UTC().Format(time.RFC3339),
-				"responder_ids":    ids,
-			},
-			"time_zone": "UTC",
+		res, aggregated, err := c.engagedQuery(ctx, from, to, ids)
+		if err != nil {
+			return nil, err
 		}
-		var starting any
-		for page := 0; page < 200; page++ {
-			if starting != nil {
-				body["starting_after"] = starting
+		if aggregated != nil && len(ids) == 1 {
+			res = map[string]float64{ids[0]: *aggregated}
+		} else if aggregated != nil {
+			for _, id := range ids { // one by one: exact attribution
+				r, agg, err := c.engagedQuery(ctx, from, to, []string{id})
+				if err != nil {
+					return nil, err
+				}
+				switch {
+				case agg != nil:
+					out[id] += *agg
+				default:
+					out[id] += r[id]
+				}
 			}
-			data, err := c.analyticsPost(ctx, body)
-			if err != nil {
-				return nil, err
-			}
-			var env struct {
-				Data []struct {
-					ResponderID string  `json:"responder_id"`
-					Engaged     float64 `json:"total_engaged_seconds"`
-				} `json:"data"`
-				More bool `json:"more"`
-				Last any  `json:"last"`
-			}
-			if err := json.Unmarshal(data, &env); err != nil {
-				return nil, fmt.Errorf("unexpected analytics response: %w", err)
-			}
-			for _, d := range env.Data {
-				out[d.ResponderID] += d.Engaged
-			}
-			if !env.More || len(env.Data) == 0 || env.Last == nil {
-				break
-			}
-			starting = env.Last
+			continue
+		}
+		for id, v := range res {
+			out[id] += v
 		}
 	}
 	return out, nil
 }
 
-func (c *Client) analyticsPost(ctx context.Context, body any) ([]byte, error) {
-	data, err := c.Do(ctx, "POST", "/analytics/metrics/responders/all", nil, body)
-	var ae *APIError
-	if err != nil && asAPIError(err, &ae) && ae.Status == 404 {
-		return c.Do(ctx, "POST", "/analytics/metrics/responders/", nil, body)
+// engagedQuery runs one Analytics request. It returns per-responder seconds, or, when the
+// response rows carry no responder_id, the aggregated total for everyone queried.
+func (c *Client) engagedQuery(ctx context.Context, from, to time.Time, ids []string) (map[string]float64, *float64, error) {
+	body := map[string]any{
+		"filters": map[string]any{
+			"date_range_start": from.UTC().Format(time.RFC3339),
+			"date_range_end":   to.UTC().Format(time.RFC3339),
+			"responder_ids":    ids,
+		},
+		"time_zone": "UTC",
 	}
-	return data, err
+	res := map[string]float64{}
+	var total float64
+	missingID := false
+	var starting any
+	for page := 0; page < 200; page++ {
+		if starting != nil {
+			body["starting_after"] = starting
+		}
+		data, err := c.analyticsPost(ctx, body)
+		if err != nil {
+			return nil, nil, err
+		}
+		var env struct {
+			Data []struct {
+				ResponderID string  `json:"responder_id"`
+				Engaged     float64 `json:"total_engaged_seconds"`
+			} `json:"data"`
+			More bool `json:"more"`
+			Last any  `json:"last"`
+		}
+		if err := json.Unmarshal(data, &env); err != nil {
+			return nil, nil, fmt.Errorf("unexpected analytics response: %w", err)
+		}
+		var sum float64
+		for _, d := range env.Data {
+			sum += d.Engaged
+			if d.ResponderID == "" {
+				missingID = true
+				continue
+			}
+			res[d.ResponderID] += d.Engaged
+		}
+		total += sum
+		c.emit("page", fmt.Sprintf("engaged %s..%s: %d rows, %.0fs engaged, per-responder ids: %v", from.UTC().Format("01-02 15:04"), to.UTC().Format("01-02 15:04"), len(env.Data), sum, !missingID))
+		if !env.More || len(env.Data) == 0 || env.Last == nil {
+			break
+		}
+		starting = env.Last
+	}
+	if missingID {
+		return nil, &total, nil
+	}
+	return res, nil, nil
+}
+
+// analyticsPost tries the per-responder metrics path first and falls back to the "all" path if it
+// does not exist. The path that works is remembered for the rest of the run.
+func (c *Client) analyticsPost(ctx context.Context, body any) ([]byte, error) {
+	c.mu.Lock()
+	path := c.analyticsPath
+	c.mu.Unlock()
+	paths := []string{"/analytics/metrics/responders/", "/analytics/metrics/responders/all"}
+	if path != "" {
+		paths = []string{path}
+	}
+	var lastErr error
+	for _, p := range paths {
+		data, err := c.Do(ctx, "POST", p, nil, body)
+		if err == nil {
+			c.mu.Lock()
+			c.analyticsPath = p
+			c.mu.Unlock()
+			return data, nil
+		}
+		var ae *APIError
+		if !asAPIError(err, &ae) || ae.Status != 404 {
+			return nil, err
+		}
+		lastErr = err
+	}
+	return nil, lastErr
 }

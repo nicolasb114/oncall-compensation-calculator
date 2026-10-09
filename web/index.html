@@ -260,7 +260,7 @@ tr.clickable{cursor:pointer}
     <div style="margin-top:10px"><button class="btn sec hide" id="reprice">Re-price the current report (no new API calls)</button> <span class="hint" id="repMsg"></span></div>
   </div>
   <div class="actions"><button class="btn ghost" data-go="1">← Back</button>
-    <div class="row" style="flex:0"><button class="btn sec" id="saveRep">Save as report</button><button class="btn" id="runBtn">Fetch &amp; review →</button></div></div>
+    <div class="row" style="flex:0"><button class="btn sec" id="saveRep">Save as report</button><span class="hint" id="engState"></span><button class="btn" id="runBtn">Fetch &amp; review →</button></div></div>
 </section>
 
 <!-- STEP 4 -->
@@ -527,7 +527,9 @@ function readRules() {
   S.manualHolidays = $("holManual").value.split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s));
   $("fixedTZ").classList.toggle("hide", R.tzMode != "fixed");
 }
+function engLabel() { $("engState").textContent = "Engaged time: " + ($("incEng").checked ? "ON" : "OFF"); $("engState").style.fontWeight = "700"; $("engState").style.color = $("incEng").checked ? "var(--green-d)" : "var(--red)"; }
 function bindRules() {
+  $("incEng").addEventListener("change", engLabel); engLabel();
   ["bs", "be", "brs", "bre", "ns", "ne", "tzMode", "fixedTZ", "holMode", "holSplit", "overlap", "incEng", "holCal", "holManual"].forEach(i => $(i).addEventListener("input", () => { readRules(); drawTL(); }));
   $("perDay").innerHTML = DAYS.map((d, i) => `<div class="row" style="margin:4px 0"><span style="flex:0 0 40px">${d}</span><input type="time" id="pd${i}s"><input type="time" id="pd${i}e"></div>`).join("");
   document.querySelectorAll("#perDay input").forEach(e => e.addEventListener("input", () => { readRules(); drawTL(); }));
@@ -541,7 +543,7 @@ function fillRules() {
   $("ns").value = R.nightStart; $("ne").value = R.nightEnd; $("tzMode").value = R.tzMode; $("fixedTZ").value = R.fixedTZ || ""; $("fixedTZ").classList.toggle("hide", R.tzMode != "fixed");
   $("holMode").value = R.holidayMode; $("holSplit").checked = !!R.splitHolidayNight; $("overlap").value = R.overlap;
   for (let d = 0; d < 7; d++) { const w = (R.perDay || {})[d] || {}; $("pd" + d + "s").value = w.start || ""; $("pd" + d + "e").value = w.end || ""; }
-  $("incEng").checked = S.includeEngaged; $("holCal").value = S.holidayCalendar; $("holManual").value = S.manualHolidays.join("\n");
+  $("incEng").checked = S.includeEngaged; engLabel(); $("holCal").value = S.holidayCalendar; $("holManual").value = S.manualHolidays.join("\n");
   chips("bdays", () => R.businessDays, v => R.businessDays = v); chips("wdays", () => R.weekendDays, v => R.weekendDays = v);
   renderPrec(); setMode(S.pricing.enabled !== false); drawTL();
 }
@@ -632,7 +634,7 @@ function buildConfig() {
   const people = S.people.filter(p => p.include !== false).map(p => ({ id: p.id, name: p.name, team: p.team, timeZone: p.timeZone, tzOverride: p.tzOverride || "", country: p.country || "" }));
   return {
     name: S.reportName, from: S.from, to: S.to, reportTZ: S.reportTZ, people, scheduleIds: S.filters.scheduleIds, policyIds: S.filters.policyIds,
-    rules: S.rules, holidayCalendar: S.holidayCalendar, manualHolidays: S.manualHolidays, includeEngaged: S.includeEngaged, pricing: S.pricing,
+    rules: S.rules, holidayCalendar: S.holidayCalendar, manualHolidays: S.manualHolidays, includeEngaged: $("incEng").checked, pricing: S.pricing,
     ui: { filters: S.filters },
   };
 }
@@ -663,7 +665,7 @@ function poll() {
       const j = await api("GET", "/api/jobs/" + S.job);
       $("fStage").textContent = j.status == "paused" ? "Paused" : (j.stage || "Fetching data");
       $("fBar").style.width = (j.total ? Math.round(100 * j.done / j.total) : 5) + "%";
-      $("fStats").textContent = `${j.calls} calls made · ${j.rateLimitWaits} rate-limit waits · ${j.retries} retries`;
+      $("fStats").textContent = `Engaged time: ${j.includeEngaged ? "ON" : "OFF"} · ${j.calls} calls made · ${j.rateLimitWaits} rate-limit waits · ${j.retries} retries`;
       const lg = $("fLog"); lg.classList.toggle("hide", !(j.log || []).length); lg.textContent = (j.log || []).slice(-8).join("\n");
       $("fPause").textContent = j.status == "paused" ? "Resume" : "Pause";
       if (j.status == "done") { S.result = j.result; $("fetchCard").classList.add("hide"); renderResult(); $("reprice").classList.remove("hide"); return; }

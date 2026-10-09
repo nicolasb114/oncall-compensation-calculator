@@ -101,7 +101,7 @@ func (s *Server) jobStatus(r *http.Request) (any, int, error) {
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	out := map[string]any{"status": j.Status, "stage": j.Stage, "done": j.Done, "total": j.Total, "log": j.Log, "error": j.Err}
+	out := map[string]any{"includeEngaged": j.cfg.IncludeEngaged, "status": j.Status, "stage": j.Stage, "done": j.Done, "total": j.Total, "log": j.Log, "error": j.Err}
 	if j.cl != nil {
 		out["calls"], out["retries"], out["rateLimitWaits"] = j.cl.Calls, j.cl.Retries, j.cl.Waits
 	}

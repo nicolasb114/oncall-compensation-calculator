@@ -42,14 +42,15 @@ type Client struct {
 	HTTP    *http.Client
 	OnEvent func(Event)
 
-	mu      sync.Mutex
-	last    time.Time
-	Calls   int
-	Retries int
-	Waits   int
-	sleep   func(context.Context, time.Duration) error
-	paused  bool
-	pauseCh chan struct{}
+	mu            sync.Mutex
+	last          time.Time
+	Calls         int
+	Retries       int
+	Waits         int
+	sleep         func(context.Context, time.Duration) error
+	paused        bool
+	pauseCh       chan struct{}
+	analyticsPath string
 }
 
 // New creates a client. region is "us" or "eu".
