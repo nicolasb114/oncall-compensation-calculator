@@ -113,3 +113,27 @@ func TestOnCallsClipDedupeNullEnd(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+// Analytics may return a single aggregated row without responder_id: engaged time must still be
+// attributed to the right people (by querying them one at a time).
+func TestEngagedAggregatedRowsAttributed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Filters struct {
+				IDs []string `json:"responder_ids"`
+			} `json:"filters"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		// one aggregated row, 100s per responder asked about, and no responder_id
+		json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{"total_engaged_seconds": 100 * len(body.Filters.IDs)}}, "more": false})
+	}))
+	defer srv.Close()
+	c, _ := testClient(srv.URL)
+	got, err := c.EngagedSeconds(context.Background(), time.Now(), time.Now().Add(time.Hour), []string{"A", "B", "C"})
+	if err != nil || got["A"] != 100 || got["B"] != 100 || got["C"] != 100 {
+		t.Fatalf("%v %v", got, err)
+	}
+	if got[""] != 0 {
+		t.Fatal("seconds stored under an empty id")
+	}
+}
