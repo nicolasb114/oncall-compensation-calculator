@@ -10,7 +10,7 @@ zone, optionally prices it, and exports PDF, HTML, CSV, XLSX or JSON. See `PDR.m
     ./oncallcalc run --report "Monthly payroll" --from 2026-09-01 --to 2026-09-30 --format pdf,csv --out ./out
 
 ## Build for all platforms
-    make dist                           # macOS (arm64, amd64), Windows, Linux into dist/
+    make dist                           # macOS Apple silicon + Intel, Windows, Linux into dist/
 
 ## Test
     make test
